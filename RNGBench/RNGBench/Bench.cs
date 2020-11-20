@@ -4,10 +4,11 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using System.Runtime.Intrinsics;
 /// <summary>
-/// | Method |      Mean |     Error |    StdDev |
-/// |------- |----------:|----------:|----------:|
-/// | Tangle | 0.9996 ns | 0.0362 ns | 0.0320 ns |
-/// | AESRNG | 1.9211 ns | 0.0689 ns | 0.0896 ns |
+/// | Method |       Mean |     Error |    StdDev |
+/// |------- |-----------:|----------:|----------:|
+/// | Tangle |  0.8584 ns | 0.0455 ns | 0.0524 ns |
+/// |    Sys | 23.1491 ns | 0.1607 ns | 0.1424 ns |
+/// | AESRNG |  1.8859 ns | 0.0673 ns | 0.0801 ns |
 /// </summary>
 namespace RNGBench
 {
@@ -72,6 +73,7 @@ namespace RNGBench
     {
         private readonly TangleRNG tangle = new TangleRNG();
         private readonly AESRNG aes = new AESRNG();
+        private readonly Random sys = new Random(11111111);
 
         public RNGComparison()
         {
@@ -79,6 +81,9 @@ namespace RNGBench
 
         [Benchmark]
         public ulong Tangle() => tangle.NextULong();
+
+        [Benchmark]
+        public ulong Sys() => (ulong)sys.Next() ^ (ulong)sys.Next() << 31 ^ (ulong)sys.Next() << 62;
 
         [Benchmark]
         public ulong AESRNG() => aes.NextULong();
