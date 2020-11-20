@@ -19,14 +19,20 @@ using BenchmarkDotNet.Running;
 //  RyuJitX64    : .NET Framework 4.8 (4.8.4250.0), X64 RyuJIT
 //
 //
-//| Method |          Job |       Jit | Platform |      Mean |     Error |    StdDev |
-//|------- |------------- |---------- |--------- |----------:|----------:|----------:|
-//| Tangle | LegacyJitX64 | LegacyJit |      X64 |  1.525 ns | 0.0577 ns | 0.0750 ns |
-//|    Sys | LegacyJitX64 | LegacyJit |      X64 | 22.630 ns | 0.1115 ns | 0.1043 ns |
-//| Tangle | LegacyJitX86 | LegacyJit |      X86 |  6.099 ns | 0.0848 ns | 0.0752 ns |
-//|    Sys | LegacyJitX86 | LegacyJit |      X86 | 24.828 ns | 0.1522 ns | 0.1424 ns |
-//| Tangle |    RyuJitX64 |    RyuJit |      X64 |  1.433 ns | 0.0113 ns | 0.0105 ns |
-//|    Sys |    RyuJitX64 |    RyuJit |      X64 | 25.056 ns | 0.2796 ns | 0.2615 ns |
+//|    Method |          Job |       Jit | Platform |      Mean |     Error |    StdDev |    Median |
+//|---------- |------------- |---------- |--------- |----------:|----------:|----------:|----------:|
+//|    Tangle | LegacyJitX64 | LegacyJit |      X64 |  1.538 ns | 0.0597 ns | 0.0710 ns |  1.556 ns |
+//|  SplitMix | LegacyJitX64 | LegacyJit |      X64 |  1.770 ns | 0.0621 ns | 0.0910 ns |  1.817 ns |
+//|       Sys | LegacyJitX64 | LegacyJit |      X64 | 21.948 ns | 0.4643 ns | 0.8133 ns | 22.499 ns |
+//| SysSimple | LegacyJitX64 | LegacyJit |      X64 |  7.615 ns | 0.1790 ns | 0.2839 ns |  7.419 ns |
+//|    Tangle | LegacyJitX86 | LegacyJit |      X86 |  5.803 ns | 0.3301 ns | 0.5605 ns |  5.956 ns |
+//|  SplitMix | LegacyJitX86 | LegacyJit |      X86 |  7.813 ns | 0.3542 ns | 0.5719 ns |  8.091 ns |
+//|       Sys | LegacyJitX86 | LegacyJit |      X86 | 24.531 ns | 0.6973 ns | 1.3266 ns | 24.345 ns |
+//| SysSimple | LegacyJitX86 | LegacyJit |      X86 |  6.645 ns | 0.3329 ns | 0.5470 ns |  6.874 ns |
+//|    Tangle |    RyuJitX64 |    RyuJit |      X64 |  1.324 ns | 0.0565 ns | 0.0828 ns |  1.367 ns |
+//|  SplitMix |    RyuJitX64 |    RyuJit |      X64 |  1.572 ns | 0.0625 ns | 0.1027 ns |  1.631 ns |
+//|       Sys |    RyuJitX64 |    RyuJit |      X64 | 23.915 ns | 0.5064 ns | 0.8178 ns | 24.455 ns |
+//| SysSimple |    RyuJitX64 |    RyuJit |      X64 |  8.127 ns | 0.1912 ns | 0.3298 ns |  8.123 ns |
 //
 //BenchmarkDotNet=v0.12.1, OS=Windows 10.0.19042
 //Intel Core i7-10750H CPU 2.60GHz, 1 CPU, 12 logical and 6 physical cores
@@ -36,11 +42,12 @@ using BenchmarkDotNet.Running;
 //
 //Job=RyuJitX64  Jit=RyuJit  Platform=X64
 //
-//| Method |       Mean |     Error |    StdDev |
-//|------- |-----------:|----------:|----------:|
-//| Tangle |  0.8173 ns | 0.0138 ns | 0.0108 ns |
-//|    Sys | 23.5320 ns | 0.1362 ns | 0.1063 ns |
-
+//|    Method |      Mean |     Error |    StdDev |    Median |
+//|---------- |----------:|----------:|----------:|----------:|
+//|    Tangle |  1.178 ns | 0.0527 ns | 0.0821 ns |  1.210 ns |
+//|  SplitMix |  1.464 ns | 0.0588 ns | 0.1187 ns |  1.542 ns |
+//|       Sys | 24.806 ns | 0.5233 ns | 0.9569 ns | 25.358 ns |
+//| SysSimple |  8.912 ns | 0.2059 ns | 0.3765 ns |  9.054 ns |
 
 namespace RNGBench
 {
@@ -64,6 +71,47 @@ namespace RNGBench
             ulong s = (StateA += 0xC6BC279692B5C323UL);
             ulong z = (s ^ s >> 31) * (StateB += 0x9E3779B97F4A7C16UL);
             return z ^ z >> 26 ^ z >> 6;
+        }
+    }
+    public class GoatRNG : Random
+    {
+        public ulong StateA { get; set; }
+        public ulong StateB { get; set; }
+        public GoatRNG()
+        {
+            StateA = 1111111111UL;
+            StateB = 1UL;
+        }
+        public GoatRNG(ulong seedA, ulong seedB)
+        {
+            StateA = seedA;
+            StateB = seedB;
+        }
+        public ulong NextULong()
+        {
+            ulong s = (StateA += 0xD1342543DE82EF95L);
+            ulong t = (s ^= s >> 31 ^ s >> 23) < 0x46BC279692B5C323UL ? StateB : (StateB += 0xB1E131D6149D9795L);
+            s *= ((t ^ t << 9) | 1L);
+            return s ^ s >> 25;
+        }
+    }
+    public class SplitMixRNG : Random
+    {
+        public ulong State { get; set; }
+        public SplitMixRNG()
+        {
+            State = 1111111111UL;
+        }
+        public SplitMixRNG(ulong seed)
+        {
+            State = seed;
+        }
+        public ulong NextULong()
+        {
+            ulong z = (State += 0x9E3779B97F4A7C15UL);
+            z = (z ^ z >> 30) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ z >> 27) * 0x94D049BB133111EBUL;
+            return z ^ (z >> 31);
         }
     }
     //public class AESRNG : Random
@@ -105,6 +153,8 @@ namespace RNGBench
     public class RNGComparison
     {
         private readonly TangleRNG tangle = new TangleRNG();
+        //private readonly GoatRNG goat = new GoatRNG();
+        private readonly SplitMixRNG splitMix = new SplitMixRNG();
         private readonly Random sys = new Random(11111111);
         //private readonly AESRNG aes = new AESRNG();
 
@@ -115,8 +165,17 @@ namespace RNGBench
         [Benchmark]
         public ulong Tangle() => tangle.NextULong();
 
+        //[Benchmark]
+        //public ulong Goat() => goat.NextULong();
+
+        [Benchmark]
+        public ulong SplitMix() => splitMix.NextULong();
+
         [Benchmark]
         public ulong Sys() => (ulong)sys.Next() ^ (ulong)sys.Next() << 31 ^ (ulong)sys.Next() << 62;
+
+        [Benchmark]
+        public ulong SysSimple() => (ulong)sys.Next();
 
         //[Benchmark]
         //public ulong AESRNG() => aes.NextULong();
