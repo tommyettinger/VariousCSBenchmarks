@@ -13,11 +13,11 @@ using BenchmarkDotNet.Running;
 //
 //|   Method |      Mean |     Error |    StdDev |
 //|--------- |----------:|----------:|----------:|
-//|     Goto | 29.902 ns | 0.1806 ns | 0.1690 ns |
-//| ThreeTwo | 41.859 ns | 0.1386 ns | 0.1229 ns |
-//|  SixFour | 15.263 ns | 0.0400 ns | 0.0334 ns |
-//|        F |  4.200 ns | 0.0889 ns | 0.0832 ns |
-//|      Sys | 32.854 ns | 0.1881 ns | 0.1469 ns |
+//|     Goto | 30.471 ns | 0.2908 ns | 0.2720 ns |
+//| ThreeTwo | 45.184 ns | 0.5787 ns | 0.5413 ns |
+//|  SixFour | 15.725 ns | 0.3350 ns | 0.2615 ns |
+//|        F |  5.182 ns | 0.1239 ns | 0.1159 ns |
+//|      Sys | 32.998 ns | 0.1865 ns | 0.1744 ns |
 
 namespace CbrtBench
 {
@@ -33,21 +33,23 @@ namespace CbrtBench
     [RyuJitX64Job]
     public class CbrtComparison
     {
-    private static float CbrtF(float fx)
-    {
-        fu_32 fu32 = new fu_32();
-        fu32.f = fx;
-        uint uy = fu32.u >> 2;
-        uy += uy >> 2;
-        uy += uy >> 4;
-        uy += uy >> 8;
-        uy += 0x2a5137a0;
-        fu32.u = uy;
-        float fy = fu32.f;
-        fy = 0.33333333f * (fx / (fy * fy) + 2.0f * fy);
-        return 0.33333333f * (fx / (fy * fy) + 2.0f * fy);
-    }
-    private static uint Cbrt64(ulong x)
+        public static float CbrtF(float fx)
+        {
+            fu_32 fu32 = new fu_32
+            {
+                f = fx
+            };
+            uint sign = fu32.u & 0x80000000u;
+            fu32.u &= 0x7FFFFFFFu;
+            uint uy = fu32.u >> 2;
+            uy += uy >> 2;
+            uy += uy >> 4;
+            fu32.u = uy + (uy >> 8) + 0x2A5137A0u | sign; //0x2A517D3Cu
+            float fy = fu32.f;
+            fy = 0.33333334f * (fx / (fy * fy) + 2.0f * fy);
+            return 0.33333334f * (fx / (fy * fy) + 2.0f * fy);
+        }
+        public static uint Cbrt64(ulong x)
     {
         if (x >= 18446724184312856125) return 2642245;
         float fx = x;
@@ -104,7 +106,7 @@ namespace CbrtBench
         return y1 - 1;
     }
 
-    private static uint Cbrt32(uint x)
+    public static uint Cbrt32(uint x)
     {
             uint y = 0, z = 0, b;
         int s = x < 1u << 24 ? x < 1u << 12 ? x < 1u << 06 ? x < 1u << 03 ? 00 : 03 :
@@ -129,7 +131,7 @@ namespace CbrtBench
         return y;
     }
 
-    private static uint CbrtGoto(uint x)
+    public static uint CbrtGoto(uint x)
         {
             uint y = 4u, z = 16u, b = 61u << 21;
             if (x < 1u << 24)
@@ -226,6 +228,50 @@ namespace CbrtBench
         public static void Main(string[] args)
         {
             var summary = BenchmarkRunner.Run(typeof(Bench).Assembly);
+        }
+    }
+
+    public class AccuracyTest
+    {
+        public static void Main(string[] args)
+        {
+            Random random = new Random(123456789);
+            double sumError = 0.0, relativeError = 0.0;
+            for (int i = 0; i < 1000000; i++)
+            {
+                float r = (float)(random.NextDouble() * random.Next(-512, 512));
+                float accurate = MathF.Cbrt(r);
+                float approx = CbrtComparison.CbrtF(r);
+                float error = accurate - approx;
+                relativeError += error;
+                sumError += Math.Abs(error);
+            }
+            Console.WriteLine($"CbrtF: Sum Error: {sumError} (averaged, {sumError / 0x100000}), Rel Error: {relativeError} (averaged, {relativeError / 0x100000})");
+
+            int absolute64 = 0, relative64 = 0;
+            int absoluteGT = 0, relativeGT = 0;
+            int absoluteF  = 0, relativeF  = 0;
+            for (uint u = 0u; u <= 8388607u; u++)
+            {
+                uint accurate = (uint)(Math.Cbrt(u));
+                uint approx = CbrtComparison.Cbrt64(u);
+                int error = (int)accurate - (int)approx;
+                relative64 += error;
+                absolute64 += Math.Abs(error);
+                approx = CbrtComparison.CbrtGoto(u);
+                error = (int)accurate - (int)approx;
+                relativeGT += error;
+                absoluteGT += Math.Abs(error);
+                approx = (uint)CbrtComparison.CbrtF(u);
+                error = (int)accurate - (int)approx;
+                relativeF += error;
+                absoluteF += Math.Abs(error);
+
+            }
+            Console.WriteLine($"Cbrt64: Sum Error: {absolute64} (averaged, {absolute64 / 8388607.0}), Rel Error: {relative64} (averaged, {relative64 / 8388607.0})");
+            Console.WriteLine($"CbrtGT: Sum Error: {absoluteGT} (averaged, {absoluteGT / 8388607.0}), Rel Error: {relativeGT} (averaged, {relativeGT / 8388607.0})");
+            Console.WriteLine($"CbrtF : Sum Error: {absoluteF } (averaged, {absoluteF  / 8388607.0}), Rel Error: {relativeF } (averaged, {relativeF  / 8388607.0})");
+
         }
     }
 }
