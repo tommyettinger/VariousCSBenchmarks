@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
@@ -231,6 +232,53 @@ namespace CbrtBench
         }
     }
 
+    public class Optimizer
+    {
+        private static float CbrtF(float fx, uint edit)
+        {
+            fu_32 fu32 = new fu_32
+            {
+                f = fx
+            };
+            uint sign = fu32.u & 0x80000000u;
+            fu32.u &= 0x7FFFFFFFu;
+            uint uy = fu32.u >> 2;
+            uy += uy >> 2;
+            uy += uy >> 4;
+            fu32.u = uy + (uy >> 8) + (0x2A5137A0u ^ edit) | sign; //0x2A517D3Cu
+            float fy = fu32.f;
+            fy = 0.33333334f * (fx / (fy * fy) + 2.0f * fy);
+            return 0.33333334f * (fx / (fy * fy) + 2.0f * fy);
+        }
+
+        public static void Main(string[] args)
+        {
+            SortedList<int, uint> sort = new SortedList<int, uint>(65536);
+            DateTime start = DateTime.Now;
+            for (uint e = 0; e < 65536; e++)
+            {
+                int absoluteF = 0, relativeF = 0;
+                for (uint u = 0u; u <= 8388607u; u++)
+                {
+                    uint accurate = (uint)(Math.Cbrt(u));
+                    uint approx = (uint)CbrtF(u, e);
+                    int error = (int)accurate - (int)approx;
+                    relativeF += error;
+                    absoluteF += Math.Abs(error);
+                }
+                if(absoluteF == 0)
+                {
+                    Console.WriteLine($"{e} !!!");
+                    return;
+                }
+                sort[absoluteF] = e;
+                if ((e & 63u) == 0u) Console.WriteLine($"{e >> 6}/1024 in {DateTime.Now - start}");
+            }
+            Console.WriteLine($"First: {sort.Keys[0]} to {sort.Values[0]}");
+            Console.WriteLine($"Last : {sort.Keys[sort.Count - 1]} to {sort.Values[sort.Count - 1]}");
+        }
+    }
+
     public class AccuracyTest
     {
         public static void Main(string[] args)
@@ -271,7 +319,6 @@ namespace CbrtBench
             Console.WriteLine($"Cbrt64: Sum Error: {absolute64} (averaged, {absolute64 / 8388607.0}), Rel Error: {relative64} (averaged, {relative64 / 8388607.0})");
             Console.WriteLine($"CbrtGT: Sum Error: {absoluteGT} (averaged, {absoluteGT / 8388607.0}), Rel Error: {relativeGT} (averaged, {relativeGT / 8388607.0})");
             Console.WriteLine($"CbrtF : Sum Error: {absoluteF } (averaged, {absoluteF  / 8388607.0}), Rel Error: {relativeF } (averaged, {relativeF  / 8388607.0})");
-
         }
     }
 }

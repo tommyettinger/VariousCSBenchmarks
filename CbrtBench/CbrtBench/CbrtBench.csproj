@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFrameworks>net5.0</TargetFrameworks>
-    <StartupObject>CbrtBench.AccuracyTest</StartupObject>
+    <StartupObject>CbrtBench.Optimizer</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
