@@ -242,27 +242,41 @@ namespace CbrtBench
             };
             uint sign = fu32.u & 0x80000000u;
             fu32.u &= 0x7FFFFFFFu;
-            uint uy = fu32.u >> 2;
+            uint uy = (fu32.u >> 2);
             uy += uy >> 2;
             uy += uy >> 4;
-            fu32.u = uy + (uy >> 8) + (0x2A5137A0u ^ edit) | sign; //0x2A517D3Cu
+            fu32.u = uy + (uy >> 8) + (0x2A50D9D3u ^ edit) | sign; //0x2A517D3Cu //0x2A5137A0u
             float fy = fu32.f;
-            fy = 0.33333334f * (fx / (fy * fy) + 2.0f * fy);
-            return 0.33333334f * (fx / (fy * fy) + 2.0f * fy);
+            fy = 0.33333330f * (fx / (fy * fy) + 2.0f * fy);
+            //fy = 0.33333330f * (fx / (fy * fy) + 2.0f * fy);
+            return 0.33333333f * (fx / (fy * fy) + 2.0f * fy);
+
+            //fu32.f = (fx / (fu32.f * fu32.f) + 2.0f * fu32.f) * 0.33333333f;
+            //fu32.f = (fx / (fu32.f * fu32.f) + 2.0f * fu32.f) * 0.33333333f;
+            //fu32.u -= fu32.u >> 29;
+            //return fu32.f;
+            //fy = 0.33333333f * (fx / (fy * fy) + 2.0f * fy);
+            //return (fx / (fy * fy) + 2.0f * fy) * 0.333333333f;
         }
 
         public static void Main(string[] args)
         {
+            for (int i = 0, c = 0; i <= 256; i++, c = i * i * i)
+            {
+                Console.WriteLine($"CbrtF({c}) == {CbrtF(c, 0u):F9} (hex {BitConverter.SingleToInt32Bits(CbrtF(c, 0u)):X8})");
+            }
             SortedList<int, uint> sort = new SortedList<int, uint>(65536);
+            Dictionary<uint, int> toAbs = new Dictionary<uint, int>(65536);
+            Dictionary<uint, int> toRel = new Dictionary<uint, int>(65536);
             DateTime start = DateTime.Now;
-            for (uint e = 0; e < 65536; e++)
+            for (uint e = 0; e < 65536u; e += 4697u)
             {
                 int absoluteF = 0, relativeF = 0;
-                for (uint u = 0u; u <= 8388607u; u++)
+                for (uint u = 0u; u <= 1u << 19; u++)//8388607u
                 {
                     uint accurate = (uint)(Math.Cbrt(u));
-                    uint approx = (uint)CbrtF(u, e);
-                    int error = (int)accurate - (int)approx;
+                    uint approx = (uint)CbrtF(u, e); // 14091
+                    int error = (int)approx - (int)accurate;
                     relativeF += error;
                     absoluteF += Math.Abs(error);
                 }
@@ -272,10 +286,13 @@ namespace CbrtBench
                     return;
                 }
                 sort[absoluteF] = e;
+                toRel[e] = relativeF;
+                toAbs[e] = absoluteF;
                 if ((e & 63u) == 0u) Console.WriteLine($"{e >> 6}/1024 in {DateTime.Now - start}");
             }
-            Console.WriteLine($"First: {sort.Keys[0]} to {sort.Values[0]}");
-            Console.WriteLine($"Last : {sort.Keys[sort.Count - 1]} to {sort.Values[sort.Count - 1]}");
+            Console.WriteLine($"First: {sort.Keys[0]} to {sort.Values[0]} (relative {toRel[sort.Values[0]]})");
+            Console.WriteLine($"Last : {sort.Keys[sort.Count - 1]} to {sort.Values[sort.Count - 1]} (relative {toRel[sort.Values[sort.Count - 1]]})");
+            Console.WriteLine($"0: absolute {toAbs[0]}, relative {toRel[0]}");
         }
     }
 
