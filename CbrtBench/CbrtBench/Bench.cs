@@ -14,11 +14,11 @@ using BenchmarkDotNet.Running;
 //
 //|   Method |      Mean |     Error |    StdDev |
 //|--------- |----------:|----------:|----------:|
-//|     Goto | 30.471 ns | 0.2908 ns | 0.2720 ns |
-//| ThreeTwo | 45.184 ns | 0.5787 ns | 0.5413 ns |
-//|  SixFour | 15.725 ns | 0.3350 ns | 0.2615 ns |
-//|        F |  5.182 ns | 0.1239 ns | 0.1159 ns |
-//|      Sys | 32.998 ns | 0.1865 ns | 0.1744 ns |
+//|     Goto | 30.178 ns | 0.1946 ns | 0.1725 ns |
+//| ThreeTwo | 44.060 ns | 0.3705 ns | 0.3284 ns |
+//|  SixFour | 16.203 ns | 0.3377 ns | 0.3614 ns |
+//|        F |  4.970 ns | 0.0913 ns | 0.0712 ns |
+//|      Sys | 33.440 ns | 0.3438 ns | 0.2870 ns |
 
 namespace CbrtBench
 {
@@ -42,13 +42,13 @@ namespace CbrtBench
             };
             uint sign = fu32.u & 0x80000000u;
             fu32.u &= 0x7FFFFFFFu;
-            uint uy = fu32.u >> 2;
+            uint uy = (fu32.u >> 2);
             uy += uy >> 2;
             uy += uy >> 4;
-            fu32.u = uy + (uy >> 8) + 0x2A5137A0u | sign; //0x2A517D3Cu
+            fu32.u = uy + (uy >> 8) + 0x2A5137A0u | sign;
             float fy = fu32.f;
-            fy = 0.33333334f * (fx / (fy * fy) + 2.0f * fy);
-            return 0.33333334f * (fx / (fy * fy) + 2.0f * fy);
+            fy =   0.3333f * (fx / (fy * fy) + 2.0f * fy);
+            return 0.3333333f * (fx / (fy * fy) + 2.0f * fy);
         }
         public static uint Cbrt64(ulong x)
     {
@@ -245,11 +245,11 @@ namespace CbrtBench
             uint uy = (fu32.u >> 2);
             uy += uy >> 2;
             uy += uy >> 4;
-            fu32.u = uy + (uy >> 8) + (0x2A50D9D3u ^ edit) | sign; //0x2A517D3Cu //0x2A5137A0u
+            fu32.u = uy + (uy >> 8) + (0x2A5137A0u ^ edit) | sign; //0x2A517D3Cu //0x2A5137A0u
             float fy = fu32.f;
             fy = 0.33333330f * (fx / (fy * fy) + 2.0f * fy);
-            //fy = 0.33333330f * (fx / (fy * fy) + 2.0f * fy);
             return 0.33333333f * (fx / (fy * fy) + 2.0f * fy);
+            //fy = 0.33333330f * (fx / (fy * fy) + 2.0f * fy);
 
             //fu32.f = (fx / (fu32.f * fu32.f) + 2.0f * fu32.f) * 0.33333333f;
             //fu32.f = (fx / (fu32.f * fu32.f) + 2.0f * fu32.f) * 0.33333333f;
@@ -307,7 +307,7 @@ namespace CbrtBench
                 float r = (float)(random.NextDouble() * random.Next(-512, 512));
                 float accurate = MathF.Cbrt(r);
                 float approx = CbrtComparison.CbrtF(r);
-                float error = accurate - approx;
+                float error = approx - accurate;
                 relativeError += error;
                 sumError += Math.Abs(error);
             }
@@ -320,15 +320,15 @@ namespace CbrtBench
             {
                 uint accurate = (uint)(Math.Cbrt(u));
                 uint approx = CbrtComparison.Cbrt64(u);
-                int error = (int)accurate - (int)approx;
+                int error = (int)approx - (int)accurate;
                 relative64 += error;
                 absolute64 += Math.Abs(error);
                 approx = CbrtComparison.CbrtGoto(u);
-                error = (int)accurate - (int)approx;
+                error = (int)approx - (int)accurate;
                 relativeGT += error;
                 absoluteGT += Math.Abs(error);
                 approx = (uint)CbrtComparison.CbrtF(u);
-                error = (int)accurate - (int)approx;
+                error = (int)approx - (int)accurate;
                 relativeF += error;
                 absoluteF += Math.Abs(error);
 
